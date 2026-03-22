@@ -1,8 +1,0 @@
-{
-  "worker": "A",
-  "role": "engineering-software-architect",
-  "task": "Design the technical specification for a Prezi-like presentation website called 'ai-representation'. The site must be a linear canvas-based presentation (zoom/pan navigation) that explains: (1) what the project is, (2) LLMs conceptually, (3) the multi-agent orchestrator+workers pattern, (4) a live build log showing agent task assignments and outputs, (5) a process documentation section. Target audience: developers, PO, QA, DevOps, SM. Key constraint: the site is meta — it must document its own creation process (built by the multi-agent system it describes). Deliverables: (a) recommended tech stack with justification, (b) component structure / canvas architecture, (c) schema for the build-log data format, (d) section/node layout on the canvas, (e) how the build log and docs are stored and rendered. Keep it maintainable by a mixed team.",
-  "context_uri": "viking://resources/ai-representation/",
-  "assigned_at": "2026-03-22",
-  "priority": "high"
-}
