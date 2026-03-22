@@ -1,0 +1,6 @@
+﻿# Agency runtime files
+.env
+.agency-project.json
+context/tasks/
+context/handoffs/
+logs/

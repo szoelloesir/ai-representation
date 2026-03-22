@@ -1,0 +1,11 @@
+{
+  "worker": "B",
+  "role": "engineering-frontend-developer",
+  "task": "Scaffold a new React project from scratch for the 'ai-representation' Prezi-like presentation site. Output directory: F:/agency/ai-representation/site/. Use the following architect-approved stack: React 18, Vite, Tailwind CSS, Framer Motion. Build a working canvas scaffold with these exact requirements: (1) CanvasStage component — outer viewport, clips overflow, captures wheel+drag gestures; (2) CanvasWorld component — 2D infinite plane transformed via CSS translate+scale; (3) 5 CanvasNode placeholders laid out horizontally at X positions 0, 2000, 4000, 6000, 8000 — each 1600x900px with a 400px gap — with sectionIds: intro, llms, multiagent, buildlog, processdocs; (4) NavBar with section titles, prev/next arrows, and a progress indicator; (5) ZoomControls with +/-, reset, and fit-all buttons; (6) Linear keyboard navigation (left/right arrows move between nodes with Framer Motion animated transitions); (7) Each node shows its section title as placeholder content. Do NOT implement section content yet — placeholders only. Do NOT implement the build log or docs fetching yet. Run `npm install` and verify `npm run dev` works before writing result. Output a working, runnable scaffold.",
+  "context_uri": "viking://resources/ai-representation/",
+  "assigned_at": "2026-03-22",
+  "priority": "high",
+  "reference": {
+    "architect_spec": "F:/agency/ai-representation/agents/worker-a/context/handoffs/worker-A-result.md"
+  }
+}

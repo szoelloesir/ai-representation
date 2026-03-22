@@ -1,0 +1,36 @@
+﻿{
+    "_comment":  "Global model routing table. Override per-project by placing providers.json in the project root.",
+    "providers":  {
+                      "default":  {
+                                      "type":  "claude-code",
+                                      "model":  "claude-sonnet-4-6"
+                                  }
+                  },
+    "routing_rules":  [
+                          {
+                              "category":  "general_non_technical",
+                              "provider":  "default",
+                              "TODO":  "swap to gemini when ready - type: gemini-cli, model: gemini-2.0-flash"
+                          },
+                          {
+                              "category":  "ux_ui_design",
+                              "provider":  "default",
+                              "TODO":  "swap to google-stitch when headless API is available"
+                          },
+                          {
+                              "category":  "ide_code_changes",
+                              "provider":  "default",
+                              "TODO":  "swap to cursor-ai when headless API is available"
+                          },
+                          {
+                              "category":  "engineering",
+                              "provider":  "default"
+                          },
+                          {
+                              "category":  "testing",
+                              "provider":  "default"
+                          }
+                      ],
+    "_project":  "ai-representation",
+    "_overrides_global":  true
+}

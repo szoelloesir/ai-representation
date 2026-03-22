@@ -1,0 +1,2 @@
+@echo off
+wt new-tab --title "OV Server" pwsh -NoExit -File "F:\agency\ai-representation\.agency-launch\tab-server.ps1" ; new-tab --title "Watcher" pwsh -NoExit -File "F:\agency\ai-representation\.agency-launch\tab-watcher.ps1" ; new-tab --title "Orchestrator" pwsh -NoExit -File "F:\agency\ai-representation\.agency-launch\tab-orchestrator.ps1" ; new-tab --title "Worker A" pwsh -NoExit -File "F:\agency\ai-representation\.agency-launch\tab-worker-a.ps1" ; new-tab --title "Worker B" pwsh -NoExit -File "F:\agency\ai-representation\.agency-launch\tab-worker-b.ps1"
