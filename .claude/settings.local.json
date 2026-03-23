@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp -r /c/git/grafinit/ai-rep-tmp/. /c/git/grafinit/ai-representation/)",
+      "Bash(rm -rf /c/git/grafinit/ai-rep-tmp)"
+    ]
+  }
+}
