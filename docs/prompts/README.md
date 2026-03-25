@@ -38,3 +38,4 @@ Chronological log of all user prompts submitted during development.
 | [030](030.md) | 2026-03-24 | Add images 4/5 as new slides without replacing existing ones |
 | [033](033.md) | 2026-03-24 | Add new logical group including image 6 slide |
 | [032](032.md) | 2026-03-24 | Adjust deck layout using overlap validator suggestion |
+| [034](034.md) | 2026-03-25 | Implement mouse navigation (pan/zoom/space reset) |

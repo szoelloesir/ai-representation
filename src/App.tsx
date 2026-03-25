@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import './App.css'
 import deckMarkdown from './content/example-deck.md?raw'
 import { compileDeck } from './presentation/compiler'
@@ -97,6 +98,64 @@ function App() {
     [compiled.nodes, camera.frameId],
   )
 
+  // Manual camera controls layered on top of the existing "fit to active frame" transform.
+  const [manualScale, setManualScale] = useState(1)
+  const [manualTranslateX, setManualTranslateX] = useState(0)
+  const [manualTranslateY, setManualTranslateY] = useState(0)
+  const [disableTransition, setDisableTransition] = useState(false)
+  const [isPanning, setIsPanning] = useState(false)
+  const disableTransitionTimeoutRef = useRef<number | null>(null)
+  const panStateRef = useRef<{
+    pointerId: number
+    startClientX: number
+    startClientY: number
+    startManualTranslateX: number
+    startManualTranslateY: number
+  } | null>(null)
+  const isPanningRef = useRef(false)
+
+  const MIN_SCALE = 0.25
+  const MAX_SCALE = 2.4
+
+  const resetView = useCallback(() => {
+    setManualScale(1)
+    setManualTranslateX(0)
+    setManualTranslateY(0)
+  }, [])
+
+  const isManualAtDefaults = useMemo(() => {
+    const scaleOk = Math.abs(manualScale - 1) < 1e-6
+    const translateXOk = Math.abs(manualTranslateX) < 0.5
+    const translateYOk = Math.abs(manualTranslateY) < 0.5
+    return scaleOk && translateXOk && translateYOk
+  }, [manualScale, manualTranslateX, manualTranslateY])
+
+  const isManualAtDefaultsRef = useRef(isManualAtDefaults)
+  useEffect(() => {
+    isManualAtDefaultsRef.current = isManualAtDefaults
+  }, [isManualAtDefaults])
+
+  const transformStateRef = useRef<{
+    baseResolvedScale: number
+    baseTranslateX: number
+    baseTranslateY: number
+    effectiveScale: number
+    effectiveTranslateX: number
+    effectiveTranslateY: number
+  } | null>(null)
+
+  const setTransitionTemporarilyDisabled = useCallback(() => {
+    setDisableTransition(true)
+    if (disableTransitionTimeoutRef.current) {
+      window.clearTimeout(disableTransitionTimeoutRef.current)
+      disableTransitionTimeoutRef.current = null
+    }
+    disableTransitionTimeoutRef.current = window.setTimeout(() => {
+      setDisableTransition(false)
+      disableTransitionTimeoutRef.current = null
+    }, 50)
+  }, [])
+
   const frameBounds = useMemo(() => {
     if (activeFrameNodes.length === 0) {
       return { minX: camera.x, minY: camera.y, maxX: camera.x + 600, maxY: camera.y + 320 }
@@ -120,14 +179,93 @@ function App() {
   const fitScale = Math.min(availableWidth / contentWidth, availableHeight / contentHeight)
   const desiredScale = camera.scale * fitScale
   // Hard guarantee: never exceed the scale that would clip active content.
-  const resolvedScale = Math.max(0.25, Math.min(2.4, Math.min(desiredScale, fitScale)))
-  const centeredOffsetX = (availableWidth - contentWidth * resolvedScale) / 2
-  const centeredOffsetY = (availableHeight - contentHeight * resolvedScale) / 2
-  const translateX = viewportPadding + centeredOffsetX - frameBounds.minX * resolvedScale
-  const translateY = viewportPadding + centeredOffsetY - frameBounds.minY * resolvedScale
-  const transform = `translate(${translateX}px, ${translateY}px) scale(${resolvedScale})`
-  const transition = `transform ${camera.transition.durationMs}ms ${camera.transition.easing}`
+  const baseResolvedScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, Math.min(desiredScale, fitScale)))
+  const centeredOffsetX = (availableWidth - contentWidth * baseResolvedScale) / 2
+  const centeredOffsetY = (availableHeight - contentHeight * baseResolvedScale) / 2
+  const baseTranslateX = viewportPadding + centeredOffsetX - frameBounds.minX * baseResolvedScale
+  const baseTranslateY = viewportPadding + centeredOffsetY - frameBounds.minY * baseResolvedScale
+
+  const effectiveScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, baseResolvedScale * manualScale))
+  const effectiveTranslateX = baseTranslateX + manualTranslateX
+  const effectiveTranslateY = baseTranslateY + manualTranslateY
+
+  const transform = `translate(${effectiveTranslateX}px, ${effectiveTranslateY}px) scale(${effectiveScale})`
+  const transition = disableTransition
+    ? 'none'
+    : `transform ${camera.transition.durationMs}ms ${camera.transition.easing}`
   const isTinyViewport = viewSize.width < 720 || viewSize.height < 420
+
+  // Keep the latest computed transform values available to event listeners without re-registering.
+  transformStateRef.current = {
+    baseResolvedScale,
+    baseTranslateX,
+    baseTranslateY,
+    effectiveScale,
+    effectiveTranslateX,
+    effectiveTranslateY,
+  }
+
+  useEffect(() => {
+    const viewportEl = viewportRef.current
+    if (!viewportEl) {
+      return
+    }
+
+    const ZOOM_SPEED = 0.0015
+
+    const onWheel = (event: WheelEvent) => {
+      if (isPanningRef.current) {
+        return
+      }
+
+      // Make wheel zoom feel natural and prevent page scrolling / container scrolling.
+      event.preventDefault()
+
+      const state = transformStateRef.current
+      if (!state) {
+        return
+      }
+
+      const rect = viewportEl.getBoundingClientRect()
+      const cursorX = event.clientX - rect.left
+      const cursorY = event.clientY - rect.top
+
+      const { baseResolvedScale, baseTranslateX, baseTranslateY, effectiveScale, effectiveTranslateX, effectiveTranslateY } = state
+
+      // Map cursor screen point -> world point under the cursor.
+      const worldX = (cursorX - effectiveTranslateX) / effectiveScale
+      const worldY = (cursorY - effectiveTranslateY) / effectiveScale
+
+      // Trackpad/mouse wheel deltas vary; normalize deltaMode a bit.
+      const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY
+      const zoomMultiplier = Math.exp(-delta * ZOOM_SPEED)
+
+      const targetEffectiveScale = effectiveScale * zoomMultiplier
+      const clampedEffectiveScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, targetEffectiveScale))
+
+      if (clampedEffectiveScale === effectiveScale) {
+        return
+      }
+
+      // Keep world point anchored under the cursor:
+      // cursorX = translateX' + scale' * worldX  => translateX' = cursorX - scale' * worldX
+      const newEffectiveTranslateX = cursorX - clampedEffectiveScale * worldX
+      const newEffectiveTranslateY = cursorY - clampedEffectiveScale * worldY
+
+      const newManualTranslateX = newEffectiveTranslateX - baseTranslateX
+      const newManualTranslateY = newEffectiveTranslateY - baseTranslateY
+
+      const newManualScale = clampedEffectiveScale / baseResolvedScale
+
+      setTransitionTemporarilyDisabled()
+      setManualTranslateX(newManualTranslateX)
+      setManualTranslateY(newManualTranslateY)
+      setManualScale(newManualScale)
+    }
+
+    viewportEl.addEventListener('wheel', onWheel, { passive: false })
+    return () => viewportEl.removeEventListener('wheel', onWheel)
+  }, [setTransitionTemporarilyDisabled, MAX_SCALE, MIN_SCALE])
 
   // Static-ish validation: detect if frame bounding rectangles overlap in world space.
   // This approximates the layout used by the compiler and helps catch bad `layout.x/y`.
@@ -222,6 +360,67 @@ function App() {
     setActiveIndex((current) => Math.min(current + 1, compiled.cameraPath.length - 1))
   }, [compiled.cameraPath.length])
 
+  const onPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (event.button !== 0) {
+        return
+      }
+      if (event.pointerType !== 'mouse') {
+        return
+      }
+
+      event.preventDefault()
+      event.currentTarget.setPointerCapture(event.pointerId)
+
+      panStateRef.current = {
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startManualTranslateX: manualTranslateX,
+        startManualTranslateY: manualTranslateY,
+      }
+
+      isPanningRef.current = true
+      setIsPanning(true)
+      setDisableTransition(true)
+      if (disableTransitionTimeoutRef.current) {
+        window.clearTimeout(disableTransitionTimeoutRef.current)
+        disableTransitionTimeoutRef.current = null
+      }
+    },
+    [manualTranslateX, manualTranslateY],
+  )
+
+  const onPointerMove = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    if (!isPanningRef.current) {
+      return
+    }
+    const panState = panStateRef.current
+    if (!panState) {
+      return
+    }
+    if (event.pointerId !== panState.pointerId) {
+      return
+    }
+
+    const dx = event.clientX - panState.startClientX
+    const dy = event.clientY - panState.startClientY
+    setManualTranslateX(panState.startManualTranslateX + dx)
+    setManualTranslateY(panState.startManualTranslateY + dy)
+  }, [])
+
+  const onPointerUp = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    const panState = panStateRef.current
+    if (!panState || event.pointerId !== panState.pointerId) {
+      return
+    }
+
+    isPanningRef.current = false
+    setIsPanning(false)
+    panStateRef.current = null
+    setDisableTransition(false)
+  }, [])
+
   const updateRealViewportSize = useCallback(() => {
     const viewport = viewportRef.current
     if (!viewport) {
@@ -307,14 +506,34 @@ function App() {
       if (event.key === 'ArrowLeft') {
         event.preventDefault()
         goPrevious()
-      } else if (event.key === 'ArrowRight' || event.key === ' ') {
+      } else if (event.key === 'ArrowRight') {
         event.preventDefault()
         goNext()
+      } else if (event.key === ' ' || event.code === 'Space' || event.key === 'Spacebar') {
+        event.preventDefault()
+        if (!isManualAtDefaultsRef.current) {
+          resetView()
+        } else {
+          goNext()
+        }
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [goNext, goPrevious])
+  }, [goNext, goPrevious, resetView])
+
+  useEffect(() => {
+    // Slide navigation should always re-fit the "automatic" view for the new active frame.
+    setIsPanning(false)
+    isPanningRef.current = false
+    panStateRef.current = null
+    setDisableTransition(false)
+    if (disableTransitionTimeoutRef.current) {
+      window.clearTimeout(disableTransitionTimeoutRef.current)
+      disableTransitionTimeoutRef.current = null
+    }
+    resetView()
+  }, [activeIndex, resetView])
 
   return (
     <main className="deck-shell">
@@ -338,7 +557,13 @@ function App() {
 
       <section
         ref={viewportRef}
-        className={`viewport ${isTinyViewport ? 'viewport-tiny' : ''}`}
+        className={`viewport ${isTinyViewport ? 'viewport-tiny' : ''} ${
+          isPanning ? 'viewport-panning' : ''
+        }`}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
       >
         <div className="camera" style={{ transform, transition }}>
           <div className="canvas">

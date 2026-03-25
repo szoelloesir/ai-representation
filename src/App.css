@@ -27,10 +27,16 @@
   overflow: hidden;
   border-block: 1px solid #2c3240;
   background: radial-gradient(circle at center, #171a24 0%, #0f1118 70%);
+  touch-action: none;
+  cursor: grab;
 }
 
 .viewport-tiny {
   overflow: auto;
+}
+
+.viewport-panning {
+  cursor: grabbing;
 }
 
 .camera {
