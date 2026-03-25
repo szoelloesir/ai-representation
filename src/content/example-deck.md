@@ -1,9 +1,10 @@
 # Az LLM-ek Működése és a Promptolás Művészete
 
-## Gyors bevezetés
+## Miről lesz szó
 - LLM bevezetés. Mit csinál, hogyan működik
-- Prompting szerepe a model belső működésében
+- Prompting szerepe
 - "Best practices" az AI segített fejlesztéshez
+- Jelenlegi eszközök és IDE-k
 ```layout
 x: -1800
 y: -300
@@ -87,7 +88,7 @@ durationMs: 1200
 ```
 
 ## Iteráció és finomítás 
-- hogyan változik az output a következő iterációban
+- Hogyan változik az output a következő iterációban
 ```layout
 x: 1180
 y: 450
@@ -104,7 +105,7 @@ durationMs: 1250
 ```
 
 ## Prompting szerepe
-- példa eltérő minőségű promptra
+- Példa eltérő minőségű promptra
 ```layout
 x: 1800
 y: 1900
@@ -191,8 +192,9 @@ durationMs: 1200
 ## Eszközök
 - IDE: Cursor
 - IDE extensions: Gemini Code Assist and Claude Code (VS Studio)
-- OpenViking
-- Agency Agents
+Tervben:
+- OpenViking -> file system context store with multi layer load handling for agents
+- Agency Agents -> open source agent "rule library"
 ```layout
 x: 2300
 y: 5400
@@ -207,6 +209,8 @@ Gemini Code Assist -> https://marketplace.visualstudio.com/items?itemName=Google
 Claude Code -> https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code
 OpenViking -> https://github.com/Open-Viking/OpenViking
 Agency Agents -> https://github.com/msitarzewski/agency-agents
+Video -> https://www.youtube.com/watch?v=91B_v-wOaws
+Repo -> https://github.com/szoelloesir/ai-representation
 ```
 ```motion
 preset: focusIn
