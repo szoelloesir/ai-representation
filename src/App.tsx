@@ -87,8 +87,12 @@ function App() {
   const [activeIndex, setActiveIndex] = useState(0)
   const [viewSize, setViewSize] = useState({ width: 0, height: 0 })
   const [renderedSizeById, setRenderedSizeById] = useState<Record<string, { width: number; height: number }>>({})
+  const [manualTransform, setManualTransform] = useState<{ x: number; y: number; scale: number } | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
   const viewportRef = useRef<HTMLElement | null>(null)
   const nodeElementsRef = useRef<Record<string, HTMLElement | null>>({})
+  const effectiveTransformRef = useRef({ x: 0, y: 0, scale: 1 })
+  const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null)
   const [overlapWarnings, setOverlapWarnings] = useState<string[]>([])
   const compiled = useMemo(() => compileDeck(parseDeck(deckMarkdown)), [])
   const camera = compiled.cameraPath[activeIndex]
@@ -125,8 +129,20 @@ function App() {
   const centeredOffsetY = (availableHeight - contentHeight * resolvedScale) / 2
   const translateX = viewportPadding + centeredOffsetX - frameBounds.minX * resolvedScale
   const translateY = viewportPadding + centeredOffsetY - frameBounds.minY * resolvedScale
-  const transform = `translate(${translateX}px, ${translateY}px) scale(${resolvedScale})`
-  const transition = `transform ${camera.transition.durationMs}ms ${camera.transition.easing}`
+
+  // When the user manually zooms, override the computed auto-fit transform.
+  const effectiveX = manualTransform?.x ?? translateX
+  const effectiveY = manualTransform?.y ?? translateY
+  const effectiveScale = manualTransform?.scale ?? resolvedScale
+
+  // Keep the ref in sync so the wheel handler always reads the latest values.
+  useLayoutEffect(() => {
+    effectiveTransformRef.current = { x: effectiveX, y: effectiveY, scale: effectiveScale }
+  })
+
+  const transform = `translate(${effectiveX}px, ${effectiveY}px) scale(${effectiveScale})`
+  // No CSS transition while scrolling for responsive feel; smooth transition when resetting.
+  const transition = manualTransform !== null ? 'none' : `transform ${camera.transition.durationMs}ms ${camera.transition.easing}`
   const isTinyViewport = viewSize.width < 720 || viewSize.height < 420
 
   // Static-ish validation: detect if frame bounding rectangles overlap in world space.
@@ -215,10 +231,12 @@ function App() {
   }, [compiled.nodes])
 
   const goPrevious = useCallback(() => {
+    setManualTransform(null)
     setActiveIndex((current) => Math.max(current - 1, 0))
   }, [])
 
   const goNext = useCallback(() => {
+    setManualTransform(null)
     setActiveIndex((current) => Math.min(current + 1, compiled.cameraPath.length - 1))
   }, [compiled.cameraPath.length])
 
@@ -307,14 +325,87 @@ function App() {
       if (event.key === 'ArrowLeft') {
         event.preventDefault()
         goPrevious()
-      } else if (event.key === 'ArrowRight' || event.key === ' ') {
+      } else if (event.key === 'ArrowRight') {
         event.preventDefault()
         goNext()
+      } else if (event.key === ' ') {
+        event.preventDefault()
+        setManualTransform(null)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [goNext, goPrevious])
+
+  // Wheel-to-zoom: zoom centered on the mouse cursor position.
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) {
+      return
+    }
+    function onWheel(event: WheelEvent) {
+      event.preventDefault()
+      const rect = viewport!.getBoundingClientRect()
+      const mouseX = event.clientX - rect.left
+      const mouseY = event.clientY - rect.top
+      const { x: currentX, y: currentY, scale: currentScale } = effectiveTransformRef.current
+      // Normalize delta across pixel/line/page deltaMode values.
+      let delta = event.deltaY
+      if (event.deltaMode === 1) delta *= 32
+      if (event.deltaMode === 2) delta *= 800
+      const zoomFactor = Math.pow(0.999, delta)
+      const newScale = Math.max(0.05, Math.min(10, currentScale * zoomFactor))
+      const ratio = newScale / currentScale
+      setManualTransform({
+        x: mouseX - (mouseX - currentX) * ratio,
+        y: mouseY - (mouseY - currentY) * ratio,
+        scale: newScale,
+      })
+    }
+    viewport.addEventListener('wheel', onWheel, { passive: false })
+    return () => viewport.removeEventListener('wheel', onWheel)
+  }, [])
+
+  // Left-click drag to pan.
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) {
+      return
+    }
+    function onMouseDown(event: MouseEvent) {
+      if (event.button !== 0) return
+      dragRef.current = {
+        startX: event.clientX,
+        startY: event.clientY,
+        originX: effectiveTransformRef.current.x,
+        originY: effectiveTransformRef.current.y,
+      }
+      setIsDragging(true)
+    }
+    function onMouseMove(event: MouseEvent) {
+      if (!dragRef.current) return
+      const dx = event.clientX - dragRef.current.startX
+      const dy = event.clientY - dragRef.current.startY
+      setManualTransform({
+        x: dragRef.current.originX + dx,
+        y: dragRef.current.originY + dy,
+        scale: effectiveTransformRef.current.scale,
+      })
+    }
+    function onMouseUp() {
+      if (!dragRef.current) return
+      dragRef.current = null
+      setIsDragging(false)
+    }
+    viewport.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      viewport.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
 
   return (
     <main className="deck-shell">
@@ -339,6 +430,7 @@ function App() {
       <section
         ref={viewportRef}
         className={`viewport ${isTinyViewport ? 'viewport-tiny' : ''}`}
+        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
       >
         <div className="camera" style={{ transform, transition }}>
           <div className="canvas">
