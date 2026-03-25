@@ -1,0 +1,36 @@
+## OpenViking Context Database
+
+You have access to an OpenViking MCP server. Use it to query and extend
+project context instead of trying to hold the entire codebase in memory.
+
+### Reading context
+- Search for relevant code/docs semantically before reading files directly
+- Query for patterns, conventions, and architectural decisions
+- Look up types, interfaces, or service contracts
+- Check if a similar task was done before
+
+### Writing context back
+After completing meaningful work, persist what you learned:
+- New patterns discovered or established (naming conventions, component
+  structure, service patterns)
+- Architectural decisions and the reasoning behind them
+- Task outcomes — what was done, what files were changed, what approach
+  was taken
+- Gotchas and edge cases encountered during implementation
+- Corrections to previously stored context that turned out to be wrong
+
+### When to use OpenViking vs direct file access
+- Use OpenViking for: "how does auth work in this project?", "what
+  pattern do we use for services?", "was this done before?"
+- Use direct file access for: editing a specific file you already know
+  the path to, running commands, creating new files
+
+### Principle
+Leave the knowledge base better than you found it. Every session should
+add useful context for future sessions.
+
+## Delivery Constraints
+- Do not add assumptions, extra sections, or alternative representations unless
+  the user explicitly asks for them.
+- If a requirement is ambiguous, ask for clarification instead of inventing
+  additional content.

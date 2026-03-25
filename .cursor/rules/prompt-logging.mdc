@@ -1,0 +1,17 @@
+---
+description: Log every user prompt to docs/prompts chronologically
+alwaysApply: true
+---
+
+# Prompt Logging Rule
+
+- For every user prompt in this repository session, add a new file in `docs/prompts/` using the next zero-padded number (for example `004.md`, `005.md`).
+- Use this file format:
+  - Frontmatter with `date: YYYY-MM-DD`
+  - Blank line
+  - Exact user prompt text
+- Keep `docs/prompts/README.md` updated in chronological order with:
+  - prompt number link
+  - date
+  - short summary
+- When asked to apply retroactively, backfill missing prompts for the current session in order.
